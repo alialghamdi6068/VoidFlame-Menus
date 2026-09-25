@@ -1,0 +1,9 @@
+name: VoidFlame-Menus
+version: 1.0.0
+main: net.voidflame.menus.VoidFlameMenusPlugin
+description: Menus module for VoidFlame MC.
+author: VoidFlame
+website: https://github.com/alialghamdi6068/VoidFlame-Menus
+api-version: '26.2'
+load: POSTWORLD
+depend: [VoidFlame-Core]
