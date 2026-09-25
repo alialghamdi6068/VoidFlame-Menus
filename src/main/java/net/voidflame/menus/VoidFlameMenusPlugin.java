@@ -24,8 +24,27 @@ public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
     private boolean connectStorage(){try{Class<?> t=Class.forName("net.voidflame.core.storage.StorageService");RegisteredServiceProvider<?> r=getServer().getServicesManager().getRegistration(t);if(r==null)return false;storage=r.getProvider();put=t.getMethod("put",String.class,String.class,String.class);get=t.getMethod("get",String.class,String.class);return true;}catch(ReflectiveOperationException e){return false;}}
     public CompletableFuture<Void> put(String k,String v){try{return (CompletableFuture<Void>)put.invoke(storage,"menus",k,v);}catch(ReflectiveOperationException e){return CompletableFuture.failedFuture(e);}}
     public CompletableFuture<String> get(String k){try{return (CompletableFuture<String>)get.invoke(storage,"menus",k);}catch(ReflectiveOperationException e){return CompletableFuture.failedFuture(e);}}
-    public void open(Player p){Inventory inv=Bukkit.createInventory(null,27,"VoidFlame"); item(inv,11,Material.DIAMOND_SWORD,"Duels"); item(inv,13,Material.CHEST,"Kits"); item(inv,15,Material.NETHERITE_HELMET,"Stats"); p.openInventory(inv);}
-    private void item(Inventory i,int slot,Material m,String name){ItemStack x=new ItemStack(m);ItemMeta meta=x.getItemMeta();meta.setDisplayName(name);x.setItemMeta(meta);i.setItem(slot,x);}
-    @EventHandler public void click(InventoryClickEvent e){if(!e.getView().getTitle().equals("VoidFlame"))return;e.setCancelled(true);}
+    public void open(Player p){
+        Inventory inv=Bukkit.createInventory(null,27,"VoidFlame");
+        item(inv,11,Material.DIAMOND_SWORD,"§bDuels","§7Open the practice system.");
+        item(inv,13,Material.CHEST,"§aKits","§7Open kit and queue options.");
+        item(inv,15,Material.NETHERITE_HELMET,"§eStats","§7View your practice statistics.");
+        item(inv,22,Material.BARRIER,"§cClose");
+        p.openInventory(inv);
+    }
+    private void item(Inventory i,int slot,Material m,String name,String... lore){
+        ItemStack x=new ItemStack(m);ItemMeta meta=x.getItemMeta();meta.setDisplayName(name);meta.setLore(java.util.Arrays.asList(lore));x.setItemMeta(meta);i.setItem(slot,x);
+    }
+    @EventHandler public void click(InventoryClickEvent e){
+        if(!e.getView().getTitle().equals("VoidFlame"))return;
+        e.setCancelled(true);
+        if(!(e.getWhoClicked() instanceof Player p))return;
+        switch(e.getRawSlot()){
+            case 11,13 -> {p.closeInventory();p.performCommand("duels");}
+            case 15 -> {p.closeInventory();p.performCommand("stats");}
+            case 22 -> p.closeInventory();
+            default -> {}
+        }
+    }
     @Override public boolean onCommand(CommandSender s,Command c,String l,String[] a){if(!(s instanceof Player p))return true;open(p);return true;}
 }
