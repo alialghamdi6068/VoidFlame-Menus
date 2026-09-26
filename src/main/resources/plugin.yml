@@ -12,3 +12,9 @@ commands:
   menu:
     description: Open the VoidFlame main menu.
     usage: /menu
+    permission: voidflame.menu
+
+permissions:
+  voidflame.menu:
+    description: Open the main practice menu.
+    default: true
