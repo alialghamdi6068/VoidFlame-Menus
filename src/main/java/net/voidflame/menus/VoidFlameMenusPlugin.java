@@ -9,6 +9,8 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -28,6 +30,7 @@ public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
     private static final String STATS = "§8VoidFlame • Stats";
     private static final String SETTINGS = "§8VoidFlame • Settings";
     private final Map<UUID, Boolean> settingBusy = new ConcurrentHashMap<>();
+    private final Map<UUID, Map<String, Boolean>> settingsCache = new ConcurrentHashMap<>();
     private StorageService storage;
 
     private record Setting(String key, Material material, String label, boolean defaultValue, String on, String off) {}
@@ -111,21 +114,38 @@ public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
     }
 
     private boolean getSetting(Player p, Setting s) {
-        String value = storage.get("settings:" + p.getUniqueId(), s.key()).join();
-        return value == null ? s.defaultValue() : Boolean.parseBoolean(value);
+        Map<String, Boolean> values = settingsCache.get(p.getUniqueId());
+        if (values == null) return s.defaultValue();
+        return values.getOrDefault(s.key(), s.defaultValue());
+    }
+
+    private void loadSettings(Player player) {
+        UUID id = player.getUniqueId();
+        Map<String, Boolean> values = new ConcurrentHashMap<>();
+        settingsCache.put(id, values);
+        for (Setting setting : SETTINGS_LIST) {
+            storage.get("settings:" + id, setting.key()).thenAccept(raw -> {
+                values.put(setting.key(), raw == null ? setting.defaultValue() : Boolean.parseBoolean(raw));
+            }).exceptionally(error -> {
+                getLogger().warning("Could not load setting " + setting.key() + " for " + id + ": " + error.getMessage());
+                return null;
+            });
+        }
     }
 
     private void toggle(Player p, Setting s) {
         if (settingBusy.putIfAbsent(p.getUniqueId(), true) != null) return;
         storage.get("settings:" + p.getUniqueId(), s.key()).thenAccept(current -> {
             boolean next = current.map(Boolean::parseBoolean).orElse(s.defaultValue());
-            storage.put("settings:" + p.getUniqueId(), s.key(), Boolean.toString(!next))
+            boolean value = !next;
+            storage.put("settings:" + p.getUniqueId(), s.key(), Boolean.toString(value))
                     .whenComplete((ignored, error) -> Bukkit.getScheduler().runTask(this, () -> {
                         settingBusy.remove(p.getUniqueId());
                         if (error != null) {
                             p.sendMessage(ChatColor.RED + "تعذر حفظ الإعداد.");
                             return;
                         }
+                        settingsCache.computeIfAbsent(p.getUniqueId(), ignoredId -> new ConcurrentHashMap<>()).put(s.key(), value);
                         open(p, SETTINGS);
                     }));
         });
@@ -134,6 +154,11 @@ public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
     private void command(Player p, String command) {
         p.closeInventory();
         Bukkit.dispatchCommand(p, command);
+    }
+
+    @EventHandler
+    public void onJoin(PlayerJoinEvent event) {
+        loadSettings(event.getPlayer());
     }
 
     @EventHandler public void click(InventoryClickEvent e) {
@@ -178,6 +203,12 @@ public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
                 p.closeInventory();
             }
         }
+    }
+
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        settingsCache.remove(event.getPlayer().getUniqueId());
+        settingBusy.remove(event.getPlayer().getUniqueId());
     }
 
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
