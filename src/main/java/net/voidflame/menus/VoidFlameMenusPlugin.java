@@ -82,10 +82,11 @@ public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
             button(inv, 31, Material.ARROW, "§7Back");
             button(inv, 33, Material.BARRIER, "§cClose");
         } else if (title.equals(SETTINGS)) {
+            button(inv, 10, Material.LIME_DYE, "§aالاتصال", "§7متصل بالسيرفر", "§7نشاطك: §aمفعل");
             for (int i = 0; i < SETTINGS_LIST.size(); i++) {
                 Setting s = SETTINGS_LIST.get(i);
                 boolean value = getSetting(p, s);
-                button(inv, 10 + i, s.material(), "§e" + s.label(), "§7الحالة: " + (value ? "§a" + s.on() : "§c" + s.off()), "§8اضغط للتبديل");
+                button(inv, 11 + i, s.material(), "§e" + s.label(), "§7الحالة: " + (value ? "§a" + s.on() : "§c" + s.off()), "§8اضغط للتبديل");
             }
             button(inv, 31, Material.ARROW, "§7رجوع");
             button(inv, 33, Material.BARRIER, "§cإغلاق");
@@ -110,8 +111,8 @@ public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
     }
 
     private boolean getSetting(Player p, Setting s) {
-        return storage.get("settings:" + p.getUniqueId(), s.key()).join()
-                .map(v -> Boolean.parseBoolean(v)).orElse(s.defaultValue());
+        String value = storage.get("settings:" + p.getUniqueId(), s.key()).join();
+        return value == null ? s.defaultValue() : Boolean.parseBoolean(value);
     }
 
     private void toggle(Player p, Setting s) {
@@ -169,8 +170,8 @@ public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
                 default -> {}
             }
         } else {
-            if (e.getRawSlot() >= 10 && e.getRawSlot() < 10 + SETTINGS_LIST.size()) {
-                toggle(p, SETTINGS_LIST.get(e.getRawSlot() - 10));
+            if (e.getRawSlot() >= 11 && e.getRawSlot() < 11 + SETTINGS_LIST.size()) {
+                toggle(p, SETTINGS_LIST.get(e.getRawSlot() - 11));
             } else if (e.getRawSlot() == 31) {
                 open(p, MAIN);
             } else if (e.getRawSlot() == 33) {
