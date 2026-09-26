@@ -1,5 +1,29 @@
 settings:
   enabled: true
   module: menus
+  close-on-select: true
+  reopen-after-action: false
+  sound-enabled: true
+  click-cooldown-ms: 250
+  async-load: true
+  cache-version: 3
+  page-size: 45
+  filler-item: GRAY_STAINED_GLASS_PANE
 
-settings-cache-version: 2
+settings-menu:
+  duel-requests: true
+  party-invites: true
+  explosion-effects: false
+  personal-level: false
+  friend-requests: false
+  private-messages: false
+  friend-join-notifications: true
+  scoreboard: true
+  show-players: true
+
+navigation:
+  back-enabled: true
+  close-enabled: true
+  confirm-enabled: true
+  cancel-enabled: true
+  invalid-action-message: true
