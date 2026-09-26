@@ -90,7 +90,7 @@ public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
         if (!title.equals(MAIN) && !title.equals(DUELS) && !title.equals(STATS)) return;
         e.setCancelled(true);
         if (!(e.getWhoClicked() instanceof Player p) || e.getRawSlot() >= e.getInventory().getSize()) return;
-        if (title.equals(MAIN)) switch(e.getRawSlot()) {
+        if (title.equals(MAIN)) { switch(e.getRawSlot()) {
             case 11 -> open(p, DUELS, true);
             case 13 -> command(p, "kits");
             case 15 -> open(p, STATS, true);
