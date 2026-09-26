@@ -9,21 +9,20 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 
-import java.lang.reflect.Method;
 import java.util.concurrent.CompletableFuture;
+import net.voidflame.core.storage.StorageService;
 
 public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
-    private Object storage; private Method put,get;
+    private StorageService storage;
     @Override public void onEnable(){saveDefaultConfig(); if(!connectStorage()){getLogger().severe("VoidFlame-Core storage unavailable.");getServer().getPluginManager().disablePlugin(this);return;} getServer().getPluginManager().registerEvents(this,this);getLogger().info("VoidFlame-Menus enabled.");}
-    private boolean connectStorage(){try{Class<?> t=Class.forName("net.voidflame.core.storage.StorageService");RegisteredServiceProvider<?> r=getServer().getServicesManager().getRegistration(t);if(r==null)return false;storage=r.getProvider();put=t.getMethod("put",String.class,String.class,String.class);get=t.getMethod("get",String.class,String.class);return true;}catch(ReflectiveOperationException e){return false;}}
-    public CompletableFuture<Void> put(String k,String v){try{return (CompletableFuture<Void>)put.invoke(storage,"menus",k,v);}catch(ReflectiveOperationException e){return CompletableFuture.failedFuture(e);}}
-    public CompletableFuture<String> get(String k){try{return (CompletableFuture<String>)get.invoke(storage,"menus",k);}catch(ReflectiveOperationException e){return CompletableFuture.failedFuture(e);}}
+    private boolean connectStorage(){ var r=getServer().getServicesManager().getRegistration(StorageService.class); if(r==null)return false; storage=r.getProvider(); return storage!=null; }
+    public CompletableFuture<Void> put(String k,String v){ return storage.put("menus",k,v); }
+    public CompletableFuture<String> get(String k){ return storage.get("menus",k); }
     public void open(Player p){
         Inventory inv=Bukkit.createInventory(null,27,"VoidFlame");
         item(inv,11,Material.DIAMOND_SWORD,"§bDuels","§7Open the practice system.");
@@ -40,7 +39,7 @@ public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
         e.setCancelled(true);
         if(!(e.getWhoClicked() instanceof Player p))return;
         switch(e.getRawSlot()){
-            case 11,13 -> {p.closeInventory();p.performCommand("duels");}
+            case 11,13 -> {p.closeInventory();p.performCommand("duel");}
             case 15 -> {p.closeInventory();p.performCommand("stats");}
             case 22 -> p.closeInventory();
             default -> {}
