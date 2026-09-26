@@ -31,6 +31,7 @@ public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
     private static final String STATS = "§8VoidFlame • Stats";
     private static final String SETTINGS = "§8VoidFlame • Settings";
     private final Map<UUID, Boolean> settingBusy = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastClicks = new ConcurrentHashMap<>();
     private final Map<UUID, Map<String, Boolean>> settingsCache = new ConcurrentHashMap<>();
     private StorageService storage;
     private PlayerSettingsService playerSettings;
@@ -164,6 +165,10 @@ public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
         if (!title.equals(MAIN) && !title.equals(DUELS) && !title.equals(STATS) && !title.equals(SETTINGS)) return;
         e.setCancelled(true);
         if (!(e.getWhoClicked() instanceof Player p) || e.getRawSlot() >= e.getInventory().getSize()) return;
+        long now = System.currentTimeMillis();
+        long cooldown = Math.max(0L, getConfig().getLong("settings.click-cooldown-ms", 250L));
+        Long previous = lastClicks.put(p.getUniqueId(), now);
+        if (previous != null && now - previous < cooldown) return;
         if (title.equals(MAIN)) {
             switch (e.getRawSlot()) {
                 case 11 -> open(p, DUELS);
@@ -207,6 +212,7 @@ public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
     public void onQuit(PlayerQuitEvent event) {
         settingsCache.remove(event.getPlayer().getUniqueId());
         settingBusy.remove(event.getPlayer().getUniqueId());
+        lastClicks.remove(event.getPlayer().getUniqueId());
     }
 
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
