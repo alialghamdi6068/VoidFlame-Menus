@@ -15,6 +15,7 @@ settings-menu:
   party-invites: true
   explosion-effects: false
   personal-level: false
+  kit-profile: false
   friend-requests: false
   private-messages: false
   friend-join-notifications: true
