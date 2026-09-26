@@ -90,30 +90,34 @@ public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
         if (!title.equals(MAIN) && !title.equals(DUELS) && !title.equals(STATS)) return;
         e.setCancelled(true);
         if (!(e.getWhoClicked() instanceof Player p) || e.getRawSlot() >= e.getInventory().getSize()) return;
-        if (title.equals(MAIN)) { switch(e.getRawSlot()) {
-            case 11 -> open(p, DUELS, true);
-            case 13 -> command(p, "kits");
-            case 15 -> open(p, STATS, true);
-            case 29 -> command(p, "practice");
-            case 31 -> command(p, "help");
-            case 33 -> p.closeInventory();
-            default -> {}
-        };
-        else if (title.equals(DUELS)) switch(e.getRawSlot()) {
-            case 10 -> command(p, "queue");
-            case 13 -> command(p, "duel");
-            case 16 -> command(p, "spectate");
-            case 31 -> open(p, MAIN, false);
-            case 33 -> p.closeInventory();
-            default -> {}
-        };
-        else switch(e.getRawSlot()) {
-            case 11 -> command(p, "stats");
-            case 15 -> command(p, "stats top");
-            case 31 -> open(p, MAIN, false);
-            case 33 -> p.closeInventory();
-            default -> {}
-        };
+        if (title.equals(MAIN)) {
+            switch(e.getRawSlot()) {
+                case 11 -> open(p, DUELS, true);
+                case 13 -> command(p, "kits");
+                case 15 -> open(p, STATS, true);
+                case 29 -> command(p, "practice");
+                case 31 -> command(p, "help");
+                case 33 -> p.closeInventory();
+                default -> {}
+            }
+        } else if (title.equals(DUELS)) {
+            switch(e.getRawSlot()) {
+                case 10 -> command(p, "queue");
+                case 13 -> command(p, "duel");
+                case 16 -> command(p, "spectate");
+                case 31 -> open(p, MAIN, false);
+                case 33 -> p.closeInventory();
+                default -> {}
+            }
+        } else {
+            switch(e.getRawSlot()) {
+                case 11 -> command(p, "stats");
+                case 15 -> command(p, "stats top");
+                case 31 -> open(p, MAIN, false);
+                case 33 -> p.closeInventory();
+                default -> {}
+            }
+        }
     }
 
     @EventHandler public void close(InventoryCloseEvent e) {
