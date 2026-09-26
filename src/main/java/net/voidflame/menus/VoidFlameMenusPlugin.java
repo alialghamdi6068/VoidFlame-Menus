@@ -10,36 +10,56 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
     private static final String MAIN = "§8VoidFlame";
     private static final String DUELS = "§8VoidFlame • Duels";
     private static final String STATS = "§8VoidFlame • Stats";
-    private final Deque<String> history = new ArrayDeque<>();
+    private static final String SETTINGS = "§8VoidFlame • Settings";
+    private final Map<UUID, Boolean> settingBusy = new ConcurrentHashMap<>();
     private StorageService storage;
+
+    private record Setting(String key, Material material, String label, boolean defaultValue, String on, String off) {}
+
+    private static final List<Setting> SETTINGS_LIST = List.of(
+            new Setting("duel_requests", Material.IRON_SWORD, "طلبات المبارزة", true, "للجميع", "متوقف"),
+            new Setting("party_invites", Material.CAKE, "دعوات الحفلة", true, "للجميع", "متوقف"),
+            new Setting("explosion_effects", Material.WIND_CHARGE, "تأثيرات الانفجار", false, "مفعل", "متوقف"),
+            new Setting("kit_profile", Material.BOOK, "ملف الكيت", false, "ظاهر", "مخفي"),
+            new Setting("personal_level", Material.NAME_TAG, "إظهار المستوى الشخصي", false, "مفعل", "متوقف"),
+            new Setting("friend_requests", Material.PLAYER_HEAD, "طلبات الصداقة", false, "للجميع", "متوقف"),
+            new Setting("private_messages", Material.WRITABLE_BOOK, "الرسائل الخاصة", false, "للأصدقاء", "متوقف"),
+            new Setting("friend_join_notifications", Material.BELL, "إشعار دخول الأصدقاء", true, "مفعل", "متوقف"),
+            new Setting("scoreboard", Material.DARK_OAK_HANGING_SIGN, "لوحة النقاط", true, "مفعل", "متوقف"),
+            new Setting("show_players", Material.ENDER_EYE, "إظهار اللاعبين", true, "مفعل", "متوقف")
+    );
 
     @Override public void onEnable() {
         saveDefaultConfig();
         var r = getServer().getServicesManager().getRegistration(StorageService.class);
-        if (r == null || (storage = r.getProvider()) == null) { getLogger().severe("VoidFlame-Core storage unavailable."); getServer().getPluginManager().disablePlugin(this); return; }
+        if (r == null || (storage = r.getProvider()) == null) {
+            getLogger().severe("VoidFlame-Core storage unavailable.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
         getServer().getPluginManager().registerEvents(this, this);
         getLogger().info("VoidFlame-Menus enabled.");
     }
 
-    public void open(Player p) { open(p, MAIN, false); }
+    public void open(Player p) { open(p, MAIN); }
 
-    private void open(Player p, String title, boolean push) {
-        if (push) history.push(p.getUniqueId()+":"+p.getOpenInventory().getTitle());
+    private void open(Player p, String title) {
         Inventory inv = Bukkit.createInventory(null, 45, title);
         fill(inv);
         if (title.equals(MAIN)) {
@@ -49,6 +69,7 @@ public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
             button(inv, 29, Material.NETHER_STAR, "§dPractice", "§7Open practice features.");
             button(inv, 31, Material.BOOK, "§6Server", "§7Server information.");
             button(inv, 33, Material.BARRIER, "§cClose");
+            button(inv, 20, Material.COMPARATOR, "§eSettings", "§7إعداداتك الشخصية");
         } else if (title.equals(DUELS)) {
             button(inv, 10, Material.DIAMOND_SWORD, "§bJoin Queue", "§7Uses the default queue.");
             button(inv, 13, Material.PAPER, "§fDuel Player", "§7Use /duel <player>.");
@@ -60,13 +81,21 @@ public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
             button(inv, 15, Material.GOLD_INGOT, "§6Leaderboard", "§7Use /stats top.");
             button(inv, 31, Material.ARROW, "§7Back");
             button(inv, 33, Material.BARRIER, "§cClose");
+        } else if (title.equals(SETTINGS)) {
+            for (int i = 0; i < SETTINGS_LIST.size(); i++) {
+                Setting s = SETTINGS_LIST.get(i);
+                boolean value = getSetting(p, s);
+                button(inv, 10 + i, s.material(), "§e" + s.label(), "§7الحالة: " + (value ? "§a" + s.on() : "§c" + s.off()), "§8اضغط للتبديل");
+            }
+            button(inv, 31, Material.ARROW, "§7رجوع");
+            button(inv, 33, Material.BARRIER, "§cإغلاق");
         }
         p.openInventory(inv);
     }
 
     private void fill(Inventory inv) {
         ItemStack pane = item(Material.GRAY_STAINED_GLASS_PANE, " ");
-        for (int i=0;i<inv.getSize();i++) if (i/9==0 || i/9==4) inv.setItem(i, pane.clone());
+        for (int i = 0; i < inv.getSize(); i++) if (i / 9 == 0 || i / 9 == 4) inv.setItem(i, pane.clone());
     }
 
     private void button(Inventory inv, int slot, Material material, String name, String... lore) {
@@ -80,52 +109,79 @@ public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
         return stack;
     }
 
+    private boolean getSetting(Player p, Setting s) {
+        return storage.get("settings:" + p.getUniqueId(), s.key()).join()
+                .map(v -> Boolean.parseBoolean(v)).orElse(s.defaultValue());
+    }
+
+    private void toggle(Player p, Setting s) {
+        if (settingBusy.putIfAbsent(p.getUniqueId(), true) != null) return;
+        storage.get("settings:" + p.getUniqueId(), s.key()).thenAccept(current -> {
+            boolean next = current.map(Boolean::parseBoolean).orElse(s.defaultValue());
+            storage.put("settings:" + p.getUniqueId(), s.key(), Boolean.toString(!next))
+                    .whenComplete((ignored, error) -> Bukkit.getScheduler().runTask(this, () -> {
+                        settingBusy.remove(p.getUniqueId());
+                        if (error != null) {
+                            p.sendMessage(ChatColor.RED + "تعذر حفظ الإعداد.");
+                            return;
+                        }
+                        open(p, SETTINGS);
+                    }));
+        });
+    }
+
     private void command(Player p, String command) {
         p.closeInventory();
         Bukkit.dispatchCommand(p, command);
     }
 
     @EventHandler public void click(InventoryClickEvent e) {
-        String title=e.getView().getTitle();
-        if (!title.equals(MAIN) && !title.equals(DUELS) && !title.equals(STATS)) return;
+        String title = e.getView().getTitle();
+        if (!title.equals(MAIN) && !title.equals(DUELS) && !title.equals(STATS) && !title.equals(SETTINGS)) return;
         e.setCancelled(true);
         if (!(e.getWhoClicked() instanceof Player p) || e.getRawSlot() >= e.getInventory().getSize()) return;
         if (title.equals(MAIN)) {
-            switch(e.getRawSlot()) {
-                case 11 -> open(p, DUELS, true);
+            switch (e.getRawSlot()) {
+                case 11 -> open(p, DUELS);
                 case 13 -> command(p, "kits");
-                case 15 -> open(p, STATS, true);
+                case 15 -> open(p, STATS);
+                case 20 -> open(p, SETTINGS);
                 case 29 -> command(p, "practice");
                 case 31 -> command(p, "help");
                 case 33 -> p.closeInventory();
                 default -> {}
             }
         } else if (title.equals(DUELS)) {
-            switch(e.getRawSlot()) {
+            switch (e.getRawSlot()) {
                 case 10 -> command(p, "queue");
                 case 13 -> command(p, "duel");
                 case 16 -> command(p, "spectate");
-                case 31 -> open(p, MAIN, false);
+                case 31 -> open(p, MAIN);
+                case 33 -> p.closeInventory();
+                default -> {}
+            }
+        } else if (title.equals(STATS)) {
+            switch (e.getRawSlot()) {
+                case 11 -> command(p, "stats");
+                case 15 -> command(p, "stats top");
+                case 31 -> open(p, MAIN);
                 case 33 -> p.closeInventory();
                 default -> {}
             }
         } else {
-            switch(e.getRawSlot()) {
-                case 11 -> command(p, "stats");
-                case 15 -> command(p, "stats top");
-                case 31 -> open(p, MAIN, false);
-                case 33 -> p.closeInventory();
-                default -> {}
+            if (e.getRawSlot() >= 10 && e.getRawSlot() < 10 + SETTINGS_LIST.size()) {
+                toggle(p, SETTINGS_LIST.get(e.getRawSlot() - 10));
+            } else if (e.getRawSlot() == 31) {
+                open(p, MAIN);
+            } else if (e.getRawSlot() == 33) {
+                p.closeInventory();
             }
         }
     }
 
-    @EventHandler public void close(InventoryCloseEvent e) {
-        if (e.getView().getTitle().equals(MAIN)) history.removeIf(s -> s.startsWith(e.getPlayer().getUniqueId()+":"));
-    }
-
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player p)) { sender.sendMessage("Players only."); return true; }
-        open(p); return true;
+        open(p);
+        return true;
     }
 }
