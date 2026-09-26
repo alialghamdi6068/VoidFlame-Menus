@@ -136,7 +136,7 @@ public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
     private void toggle(Player p, Setting s) {
         if (settingBusy.putIfAbsent(p.getUniqueId(), true) != null) return;
         storage.get("settings:" + p.getUniqueId(), s.key()).thenAccept(current -> {
-            boolean next = current.map(Boolean::parseBoolean).orElse(s.defaultValue());
+            boolean next = current == null ? s.defaultValue() : Boolean.parseBoolean(current);
             boolean value = !next;
             storage.put("settings:" + p.getUniqueId(), s.key(), Boolean.toString(value))
                     .whenComplete((ignored, error) -> Bukkit.getScheduler().runTask(this, () -> {
