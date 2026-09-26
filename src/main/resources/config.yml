@@ -1,3 +1,5 @@
 settings:
   enabled: true
   module: menus
+
+settings-cache-version: 2
