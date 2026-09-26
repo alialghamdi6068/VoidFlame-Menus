@@ -1,6 +1,7 @@
 package net.voidflame.menus;
 
 import net.voidflame.core.storage.StorageService;
+import net.voidflame.core.storage.PlayerSettingsService;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -32,6 +33,7 @@ public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
     private final Map<UUID, Boolean> settingBusy = new ConcurrentHashMap<>();
     private final Map<UUID, Map<String, Boolean>> settingsCache = new ConcurrentHashMap<>();
     private StorageService storage;
+    private PlayerSettingsService playerSettings;
 
     private record Setting(String key, Material material, String label, boolean defaultValue, String on, String off) {}
 
@@ -51,7 +53,8 @@ public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
     @Override public void onEnable() {
         saveDefaultConfig();
         var r = getServer().getServicesManager().getRegistration(StorageService.class);
-        if (r == null || (storage = r.getProvider()) == null) {
+        var settingsRegistration = getServer().getServicesManager().getRegistration(PlayerSettingsService.class);
+        if (r == null || (storage = r.getProvider()) == null || settingsRegistration == null || (playerSettings = settingsRegistration.getProvider()) == null) {
             getLogger().severe("VoidFlame-Core storage unavailable.");
             getServer().getPluginManager().disablePlugin(this);
             return;
@@ -124,31 +127,26 @@ public final class VoidFlameMenusPlugin extends JavaPlugin implements Listener {
         Map<String, Boolean> values = new ConcurrentHashMap<>();
         settingsCache.put(id, values);
         for (Setting setting : SETTINGS_LIST) {
-            storage.get("settings:" + id, setting.key()).thenAccept(raw -> {
-                values.put(setting.key(), raw == null ? setting.defaultValue() : Boolean.parseBoolean(raw));
-            }).exceptionally(error -> {
-                getLogger().warning("Could not load setting " + setting.key() + " for " + id + ": " + error.getMessage());
-                return null;
-            });
+            playerSettings.get(id, setting.key(), setting.defaultValue()).thenAccept(value ->
+                    values.put(setting.key(), value));
         }
     }
 
     private void toggle(Player p, Setting s) {
         if (settingBusy.putIfAbsent(p.getUniqueId(), true) != null) return;
-        storage.get("settings:" + p.getUniqueId(), s.key()).thenAccept(current -> {
-            boolean next = current == null ? s.defaultValue() : Boolean.parseBoolean(current);
-            boolean value = !next;
-            storage.put("settings:" + p.getUniqueId(), s.key(), Boolean.toString(value))
-                    .whenComplete((ignored, error) -> Bukkit.getScheduler().runTask(this, () -> {
-                        settingBusy.remove(p.getUniqueId());
-                        if (error != null) {
-                            p.sendMessage(ChatColor.RED + "تعذر حفظ الإعداد.");
-                            return;
-                        }
-                        settingsCache.computeIfAbsent(p.getUniqueId(), ignoredId -> new ConcurrentHashMap<>()).put(s.key(), value);
-                        open(p, SETTINGS);
-                    }));
-        });
+        boolean current = getSetting(p, s);
+        boolean value = !current;
+        playerSettings.set(p.getUniqueId(), s.key(), value).whenComplete((ignored, error) ->
+                Bukkit.getScheduler().runTask(this, () -> {
+                    settingBusy.remove(p.getUniqueId());
+                    if (error != null) {
+                        p.sendMessage(ChatColor.RED + "تعذر حفظ الإعداد.");
+                        return;
+                    }
+                    settingsCache.computeIfAbsent(p.getUniqueId(), ignoredId -> new ConcurrentHashMap<>())
+                            .put(s.key(), value);
+                    open(p, SETTINGS);
+                }));
     }
 
     private void command(Player p, String command) {
